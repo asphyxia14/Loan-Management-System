@@ -1,0 +1,13 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "flutter": true,
+        "/^cd /Users/matthew/Developer/Dart\\\\ Projects/Finals/finals_application && node --check backend/server\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /Users/matthew/Developer/Dart\\\\ Projects/Finals/finals_application && node --check backend/server\\.js && echo BACKEND_SYNTAX_OK$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
