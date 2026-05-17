@@ -9,47 +9,57 @@ class MembersPanel extends StatelessWidget {
     required this.nameController,
     required this.phoneController,
     required this.addressController,
+    required this.searchController,
     required this.members,
     required this.onCreateMember,
+    required this.onEditMember,
     required this.onToggleMemberStatus,
     required this.onDeleteMember,
     required this.formatMoney,
+    required this.onSearchChanged,
   });
 
   final TextEditingController nameController;
   final TextEditingController phoneController;
   final TextEditingController addressController;
+  final TextEditingController searchController;
   final List<MemberRecord> members;
   final VoidCallback onCreateMember;
+  final ValueChanged<MemberRecord> onEditMember;
   final ValueChanged<MemberRecord> onToggleMemberStatus;
   final ValueChanged<MemberRecord> onDeleteMember;
   final String Function(double) formatMoney;
+  final ValueChanged<String> onSearchChanged;
 
-  Widget _field(TextEditingController controller, String placeholder) {
-    return CupertinoTextField(
-      controller: controller,
-      placeholder: placeholder,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey5,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: CupertinoColors.separator),
-      ),
-    );
-  }
-
-  Widget _cell(String text, {double? width, bool bold = false}) {
-    return SizedBox(
-      width: width,
-      child: Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: CupertinoThemeData(brightness: Brightness.light)
-            .textTheme
-            .textStyle
-            .copyWith(fontWeight: bold ? FontWeight.w600 : FontWeight.w400),
-      ),
+  Widget _field(String label, TextEditingController controller, String placeholder, {VoidCallback? onSubmitted}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 6),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: CupertinoColors.secondaryLabel,
+            ),
+          ),
+        ),
+        CupertinoTextField(
+          controller: controller,
+          placeholder: placeholder,
+          onSubmitted: (_) => onSubmitted?.call(),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: CupertinoColors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -75,12 +85,12 @@ class MembersPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _field(nameController, 'Full Name'),
-          const SizedBox(height: 12),
-          _field(phoneController, 'Phone Number'),
-          const SizedBox(height: 12),
-          _field(addressController, 'Address'),
+          _field('FULL NAME', nameController, 'Enter full name', onSubmitted: onCreateMember),
           const SizedBox(height: 16),
+          _field('PHONE NUMBER', phoneController, 'Enter phone number', onSubmitted: onCreateMember),
+          const SizedBox(height: 16),
+          _field('ADDRESS', addressController, 'Enter address', onSubmitted: onCreateMember),
+          const SizedBox(height: 24),
           Align(
             alignment: Alignment.topLeft,
             child: CupertinoButton.filled(
@@ -103,125 +113,88 @@ class MembersPanel extends StatelessWidget {
       title: 'Member Registry',
       subtitle: '${members.length} member(s)',
       icon: CupertinoIcons.person_2_fill,
-      child: members.isEmpty
-          ? const Text('No members yet. Add a member to get started.')
-          : LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                if (constraints.maxWidth < 720) {
-                  return Column(
-                    children: members
-                        .map((MemberRecord member) =>
-                            _MemberSummaryCard(
-                              member: member,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: CupertinoSearchTextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              placeholder: 'Search name, member no, or phone...',
+              decoration: BoxDecoration(
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ),
+          members.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No members found.'),
+                )
+              : LayoutBuilder(
+                  builder: (BuildContext context, BoxConstraints constraints) {
+                    if (constraints.maxWidth < 720) {
+                      return Column(
+                        children: members
+                            .map((MemberRecord member) => _MemberSummaryCard(
+                                  member: member,
+                                  formatMoney: formatMoney,
+                                  onEditMember: onEditMember,
+                                  onToggleMemberStatus: onToggleMemberStatus,
+                                  onDeleteMember: onDeleteMember,
+                                ))
+                            .toList(growable: false),
+                      );
+                    }
+
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Column(
+                        children: <Widget>[
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: CupertinoColors.tertiarySystemFill,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                _headerCell('Member No.', width: 110),
+                                _headerCell('Full Name', width: 180),
+                                _headerCell('Phone', width: 130),
+                                _headerCell('Address', width: 170),
+                                _headerCell('Status', width: 90),
+                                _headerCell('Savings', width: 100),
+                                _headerCell('Actions', width: 220),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...List<Widget>.generate(members.length, (int index) {
+                            return _MemberTableRow(
+                              member: members[index],
+                              index: index,
                               formatMoney: formatMoney,
+                              onEditMember: onEditMember,
                               onToggleMemberStatus: onToggleMemberStatus,
                               onDeleteMember: onDeleteMember,
-                            ))
-                        .toList(growable: false),
-                  );
-                }
-
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Column(
-                    children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.tertiarySystemFill,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: <Widget>[
-                            _headerCell('Member No.', width: 110),
-                            _headerCell('Full Name', width: 180),
-                            _headerCell('Phone', width: 130),
-                            _headerCell('Address', width: 170),
-                            _headerCell('Status', width: 90),
-                            _headerCell('Savings', width: 100),
-                            _headerCell('Actions', width: 220),
-                          ],
-                        ),
+                            );
+                          }),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      ...members.map((MemberRecord member) {
-                        final bool isActive =
-                            member.status.toUpperCase() == 'ACTIVE';
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                CupertinoColors.secondarySystemGroupedBackground,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: <Widget>[
-                              _cell(member.memberNumber, width: 110),
-                              _cell(member.fullName, width: 180, bold: true),
-                              _cell(
-                                member.phoneNumber.isEmpty
-                                    ? '-'
-                                    : member.phoneNumber,
-                                width: 130,
-                              ),
-                              _cell(
-                                member.addressLine.isEmpty
-                                    ? '-'
-                                    : member.addressLine,
-                                width: 170,
-                              ),
-                              _cell(member.status, width: 90),
-                              _cell(
-                                formatMoney(member.savingsBalance),
-                                width: 100,
-                              ),
-                              SizedBox(
-                                width: 220,
-                                child: Row(
-                                  children: <Widget>[
-                                    CupertinoButton(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      onPressed: () =>
-                                          onToggleMemberStatus(member),
-                                      child: Text(
-                                        isActive
-                                            ? 'Set Inactive'
-                                            : 'Set Active',
-                                      ),
-                                    ),
-                                    CupertinoButton(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 6,
-                                      ),
-                                      onPressed: () => onDeleteMember(member),
-                                      child: const Icon(
-                                        CupertinoIcons.delete,
-                                        color: CupertinoColors.systemRed,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+        ],
+      ),
     );
 
     return SingleChildScrollView(
@@ -257,16 +230,133 @@ class MembersPanel extends StatelessWidget {
   }
 }
 
+class _MemberTableRow extends StatelessWidget {
+  const _MemberTableRow({
+    required this.member,
+    required this.index,
+    required this.formatMoney,
+    required this.onEditMember,
+    required this.onToggleMemberStatus,
+    required this.onDeleteMember,
+  });
+
+  final MemberRecord member;
+  final int index;
+  final String Function(double) formatMoney;
+  final ValueChanged<MemberRecord> onEditMember;
+  final ValueChanged<MemberRecord> onToggleMemberStatus;
+  final ValueChanged<MemberRecord> onDeleteMember;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isActive = member.status.toUpperCase() == 'ACTIVE';
+    final bool isEven = index % 2 == 0;
+
+    final Color backgroundColor = isEven
+        ? CupertinoColors.secondarySystemGroupedBackground
+        : CupertinoColors.systemGrey6.withValues(alpha: 0.3);
+
+    return GestureDetector(
+      onTap: () => onEditMember(member),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: <Widget>[
+            _cell(member.memberNumber, width: 110),
+            _cell(member.fullName, width: 180, bold: true),
+            _cell(
+              member.phoneNumber.isEmpty ? '-' : member.phoneNumber,
+              width: 130,
+            ),
+            _cell(
+              member.addressLine.isEmpty ? '-' : member.addressLine,
+              width: 170,
+            ),
+            _cell(member.status, width: 90),
+            _cell(
+              formatMoney(member.savingsBalance),
+              width: 100,
+            ),
+            SizedBox(
+              width: 220,
+              child: Row(
+                children: <Widget>[
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    onPressed: () => onEditMember(member),
+                    child: const Icon(CupertinoIcons.pencil, size: 20),
+                  ),
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    onPressed: () => onToggleMemberStatus(member),
+                    child: Text(
+                      isActive ? 'Set Inactive' : 'Set Active',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ),
+                  CupertinoButton(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    onPressed: () => onDeleteMember(member),
+                    child: const Icon(
+                      CupertinoIcons.delete,
+                      color: CupertinoColors.systemRed,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String text, {double? width, bool bold = false}) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+        ),
+      ),
+    );
+  }
+}
+
 class _MemberSummaryCard extends StatefulWidget {
   const _MemberSummaryCard({
     required this.member,
     required this.formatMoney,
+    required this.onEditMember,
     required this.onToggleMemberStatus,
     required this.onDeleteMember,
   });
 
   final MemberRecord member;
   final String Function(double) formatMoney;
+  final ValueChanged<MemberRecord> onEditMember;
   final ValueChanged<MemberRecord> onToggleMemberStatus;
   final ValueChanged<MemberRecord> onDeleteMember;
 
@@ -381,13 +471,18 @@ class _MemberSummaryCardState extends State<_MemberSummaryCard> {
                     children: <Widget>[
                       CupertinoButton(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        onPressed: () => widget.onEditMember(widget.member),
+                        child: const Icon(CupertinoIcons.pencil, size: 20),
+                      ),
+                      CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         onPressed: () => widget.onToggleMemberStatus(widget.member),
                         child: Text(isActive ? 'Set Inactive' : 'Set Active', style: const TextStyle(fontSize: 13)),
                       ),
                       CupertinoButton(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         onPressed: () => widget.onDeleteMember(widget.member),
-                        child: const Icon(CupertinoIcons.delete, color: CupertinoColors.systemRed, size: 18),
+                        child: const Icon(CupertinoIcons.delete, color: CupertinoColors.systemRed, size: 20),
                       ),
                     ],
                   ),
@@ -400,5 +495,3 @@ class _MemberSummaryCardState extends State<_MemberSummaryCard> {
     );
   }
 }
-
-

@@ -44,9 +44,11 @@ class _ConnectionPanelState extends State<ConnectionPanel> {
       keyboardType: keyboardType,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey5,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: CupertinoColors.separator),
+        color: CupertinoColors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+        ),
       ),
     );
   }
@@ -83,60 +85,71 @@ class _ConnectionPanelState extends State<ConnectionPanel> {
                 const SizedBox(height: 12),
                 _field(
                   widget.passwordController,
-                  'SQL Password (Docker MSSQL_SA_PASSWORD)',
+                  'SQL Password',
                   obscureText: true,
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 20),
                 Align(
                   alignment: Alignment.topLeft,
                   child: CupertinoButton.filled(
                     onPressed: widget.isConnecting ? null : widget.onConnect,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        if (widget.isConnecting) ...<Widget>[
-                          const CupertinoActivityIndicator(),
-                          const SizedBox(width: 8),
-                        ],
-                        Text(
-                          widget.isConnecting
-                              ? 'Connecting...'
-                              : 'Connect and Initialize Schema',
-                        ),
-                      ],
-                    ),
+                    child: widget.isConnecting
+                        ? const CupertinoActivityIndicator()
+                        : const Text('Connect to SQL Server'),
                   ),
                 ),
               ],
             ),
           );
 
-          final Widget quickGuideContent = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text('1. Start the backend server in the backend folder.'),
-              const SizedBox(height: 8),
-              const Text(
-                '2. Confirm SQL Server is running and port 1433 is open.',
-              ),
-              const SizedBox(height: 8),
-              const Text('3. Use the exact SA password from your Docker setup.'),
-              const SizedBox(height: 8),
-              const Text(
-                '4. Keep database name as PQRCooperative unless customized.',
-              ),
-            ],
-          );
-
           final Widget quickGuide = AppSectionCard(
-            title: 'Quick Start',
-            subtitle: 'Use this checklist if connection fails.',
-            icon: CupertinoIcons.check_mark_circled,
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _showGuide
-                  ? quickGuideContent
-                  : const Text('Quick tips hidden.'),
+            title: 'Connection Guide',
+            icon: CupertinoIcons.info_circle,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  '1. Ensure your Node.js backend is running (npm start).',
+                  style: TextStyle(fontSize: 14, height: 1.5),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '2. Enter the backend URL (usually http://127.0.0.1:8080).',
+                  style: TextStyle(fontSize: 14, height: 1.5),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '3. Provide your SQL Server credentials (host, port, user, password).',
+                  style: TextStyle(fontSize: 14, height: 1.5),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  '4. If the database does not exist, the backend will attempt to create it using the provided credentials.',
+                  style: TextStyle(fontSize: 14, height: 1.5),
+                ),
+                const SizedBox(height: 16),
+                CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  onPressed: () {
+                    setState(() {
+                      _showGuide = !_showGuide;
+                    });
+                  },
+                  child: const Text('Toggle Advanced Info'),
+                ),
+                if (_showGuide)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'For local Docker setups, use host: 127.0.0.1 and port: 1433. Ensure the SQL user has permission to CREATE DATABASE if it doesn\'t exist.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: CupertinoColors.secondaryLabel,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           );
 
@@ -146,43 +159,7 @@ class _ConnectionPanelState extends State<ConnectionPanel> {
               children: <Widget>[
                 Expanded(flex: 3, child: connectionForm),
                 const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: <Widget>[
-                          const Text(
-                            'Quick Start',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: CupertinoColors.secondaryLabel,
-                            ),
-                          ),
-                          CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: () {
-                              setState(() {
-                                _showGuide = !_showGuide;
-                              });
-                            },
-                            child: Icon(
-                              _showGuide
-                                  ? CupertinoIcons.chevron_up
-                                  : CupertinoIcons.chevron_down,
-                              size: 18,
-                              color: CupertinoColors.secondaryLabel,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      quickGuide,
-                    ],
-                  ),
-                ),
+                Expanded(flex: 2, child: quickGuide),
               ],
             );
           }

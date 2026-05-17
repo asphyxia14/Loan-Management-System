@@ -26,25 +26,69 @@ class ReportsPanel extends StatelessWidget {
   final String Function(double) formatMoney;
 
   Future<void> _pickYear(BuildContext context, List<int> years) async {
-    await showCupertinoModalPopup<void>(
+    await showCupertinoDialog<void>(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext context) {
-        return CupertinoActionSheet(
-          title: const Text('Select Year'),
-          actions: years
-              .map((int year) {
-                return CupertinoActionSheetAction(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    onYearChanged(year);
-                  },
-                  child: Text(year.toString()),
-                );
-              })
-              .toList(growable: false),
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+        return Center(
+          child: Container(
+            width: 300,
+            constraints: const BoxConstraints(maxHeight: 400),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemBackground.resolveFrom(context),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Select Year',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: years.length,
+                    itemBuilder: (BuildContext context, int index) {
+                      final int year = years[index];
+                      return CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onYearChanged(year);
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: CupertinoColors.separator),
+                            ),
+                          ),
+                          child: Text(
+                            year.toString(),
+                            style: const TextStyle(
+                              color: CupertinoColors.label,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                CupertinoButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -52,24 +96,69 @@ class ReportsPanel extends StatelessWidget {
   }
 
   Future<void> _pickMonth(BuildContext context) async {
-    await showCupertinoModalPopup<void>(
+    await showCupertinoDialog<void>(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext context) {
-        return CupertinoActionSheet(
-          title: const Text('Select Month'),
-          actions: List<Widget>.generate(12, (int index) {
-            final int month = index + 1;
-            return CupertinoActionSheetAction(
-              onPressed: () {
-                Navigator.of(context).pop();
-                onMonthChanged(month);
-              },
-              child: Text(month.toString().padLeft(2, '0')),
-            );
-          }),
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+        return Center(
+          child: Container(
+            width: 300,
+            constraints: const BoxConstraints(maxHeight: 400),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemBackground.resolveFrom(context),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    'Select Month',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                  ),
+                ),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: 12,
+                    itemBuilder: (BuildContext context, int index) {
+                      final int month = index + 1;
+                      return CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          onMonthChanged(month);
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: CupertinoColors.separator),
+                            ),
+                          ),
+                          child: Text(
+                            month.toString().padLeft(2, '0'),
+                            style: const TextStyle(
+                              color: CupertinoColors.label,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                CupertinoButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
@@ -84,21 +173,26 @@ class ReportsPanel extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
-          color: CupertinoColors.systemGrey5,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: CupertinoColors.separator),
+          color: CupertinoColors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+          ),
         ),
         child: Row(
           children: <Widget>[
             Expanded(
               child: Text(
                 '$label: $value',
-                style: const TextStyle(color: CupertinoColors.label),
+                style: const TextStyle(
+                  color: CupertinoColors.label,
+                  fontSize: 14,
+                ),
               ),
             ),
             const Icon(
               CupertinoIcons.chevron_down,
-              size: 16,
+              size: 14,
               color: CupertinoColors.secondaryLabel,
             ),
           ],
@@ -107,64 +201,44 @@ class ReportsPanel extends StatelessWidget {
     );
   }
 
-  Widget _metricRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: CupertinoColors.secondaryLabel),
-            ),
-          ),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final int currentYear = DateTime.now().year;
-    final List<int> years = List<int>.generate(9, (int index) {
-      return currentYear - 4 + index;
-    });
+    final List<int> years = List<int>.generate(11, (int i) => currentYear - 5 + i);
 
     final Widget controlsCard = AppSectionCard(
-      title: 'Monthly Financial Summary',
-      subtitle:
-          'Aggregated savings and loan movement from SQL reporting views.',
-      icon: CupertinoIcons.chart_bar_fill,
+      title: 'Report Period',
+      icon: CupertinoIcons.calendar,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          _selectorTile(
-            'Year',
-            reportYear.toString(),
-            () => _pickYear(context, years),
-          ),
-          const SizedBox(height: 12),
-          _selectorTile(
-            'Month',
-            reportMonth.toString().padLeft(2, '0'),
-            () => _pickMonth(context),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: _selectorTile(
+                  'Year',
+                  reportYear.toString(),
+                  () => _pickYear(context, years),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _selectorTile(
+                  'Month',
+                  reportMonth.toString().padLeft(2, '0'),
+                  () => _pickMonth(context),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.topLeft,
             child: CupertinoButton.filled(
               onPressed: isGenerating ? null : onGenerate,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  if (isGenerating) ...<Widget>[
-                    const CupertinoActivityIndicator(),
-                    const SizedBox(width: 8),
-                  ],
-                  const Text('Generate Summary'),
-                ],
-              ),
+              child: isGenerating
+                  ? const CupertinoActivityIndicator()
+                  : const Text('Generate Monthly Report'),
             ),
           ),
         ],
@@ -172,51 +246,36 @@ class ReportsPanel extends StatelessWidget {
     );
 
     final Widget resultCard = AppSectionCard(
-      title: 'Summary Result',
-      icon: CupertinoIcons.doc_text_search,
+      title: 'Financial Results',
+      subtitle: 'Period: $reportYear-${reportMonth.toString().padLeft(2, '0')}',
+      icon: CupertinoIcons.doc_plaintext,
       child: summary == null
-          ? const Text('No summary data for selected period.')
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 40),
+              child: Text(
+                'No report generated for this period.',
+                textAlign: TextAlign.center,
+              ),
+            )
           : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  'Period: ${summary!.year}-${summary!.month.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 12),
-                _metricRow('Deposits', formatMoney(summary!.deposits)),
-                _metricRow('Withdrawals', formatMoney(summary!.withdrawals)),
-                _metricRow('Net Savings', formatMoney(summary!.netSavings)),
-                _metricRow(
-                  'Loan Disbursements',
-                  formatMoney(summary!.loanDisbursements),
-                ),
-                _metricRow(
-                  'Loan Repayments',
-                  formatMoney(summary!.loanRepayments),
-                ),
-                _metricRow('Net Cash Flow', formatMoney(summary!.netCashFlow)),
+                _reportRow('Deposits', formatMoney(summary!.deposits)),
+                _reportRow('Withdrawals', formatMoney(summary!.withdrawals), isNegative: true),
+                const Divider(),
+                _reportRow('NET SAVINGS', formatMoney(summary!.netSavings), isBold: true),
+                const SizedBox(height: 20),
+                _reportRow('Loan Disbursements', formatMoney(summary!.loanDisbursements), isNegative: true),
+                _reportRow('Loan Repayments', formatMoney(summary!.loanRepayments)),
+                const Divider(),
+                _reportRow('NET CASH FLOW', formatMoney(summary!.netCashFlow), isBold: true),
               ],
             ),
     );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          final bool useTwoColumns = constraints.maxWidth >= 800;
-
-          if (useTwoColumns) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(flex: 2, child: controlsCard),
-                const SizedBox(width: 16),
-                Expanded(flex: 3, child: resultCard),
-              ],
-            );
-          }
-
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
@@ -227,6 +286,45 @@ class ReportsPanel extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _reportRow(String label, String value,
+      {bool isNegative = false, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: <Widget>[
+          Text(
+            label,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
+              color: isBold ? CupertinoColors.label : CupertinoColors.secondaryLabel,
+            ),
+          ),
+          Text(
+            isNegative ? '($value)' : value,
+            style: TextStyle(
+              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+              color: isNegative ? CupertinoColors.systemRed : CupertinoColors.label,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class Divider extends StatelessWidget {
+  const Divider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      height: 1,
+      color: CupertinoColors.separator,
     );
   }
 }

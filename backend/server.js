@@ -237,6 +237,53 @@ WHERE MemberId = @memberId;
   }
 });
 
+app.patch('/members/:memberId', requireSession, async (req, res) => {
+  try {
+    const memberId = toInt(req.params.memberId);
+    const fullName = cleanString(req.body.fullName);
+    const phoneNumber = cleanString(req.body.phoneNumber);
+    const addressLine = cleanString(req.body.addressLine);
+
+    if (!memberId) {
+      return res.status(400).json({ error: 'memberId is invalid.' });
+    }
+    if (!fullName) {
+      return res.status(400).json({ error: 'fullName is required.' });
+    }
+
+    const memberResult = await executeQuery(
+      req.session.pool,
+      `
+SELECT TOP 1 MemberId
+FROM dbo.Members
+WHERE MemberId = @memberId;
+`,
+      { memberId },
+    );
+
+    if (!memberResult.recordset?.length) {
+      return res.status(404).json({ error: 'Member not found.' });
+    }
+
+    await executeQuery(
+      req.session.pool,
+      `
+UPDATE dbo.Members
+SET FullName = @fullName,
+    PhoneNumber = @phoneNumber,
+    AddressLine = @addressLine,
+    UpdatedAt = SYSDATETIME()
+WHERE MemberId = @memberId;
+`,
+      { memberId, fullName, phoneNumber, addressLine },
+    );
+
+    res.json({ ok: true, memberId });
+  } catch (error) {
+    res.status(500).json({ error: error.message || 'Failed to update member.' });
+  }
+});
+
 app.delete('/members/:memberId', requireSession, async (req, res) => {
   try {
     const memberId = toInt(req.params.memberId);
@@ -592,9 +639,12 @@ WHERE LoanId = @loanId;
       return res.status(409).json({ error: 'Payments can be posted only to approved loans.' });
     }
 
-    if (totalPayment > outstanding + 0.005) {
+    // Only compare principal and interest against outstanding balance.
+    // Penalties are extra and don't reduce the base balance.
+    const basePayment = principalPaid + interestPaid;
+    if (basePayment > outstanding + 0.005) {
       return res.status(409).json({
-        error: `Payment exceeds current outstanding balance (${outstanding.toFixed(2)}).`,
+        error: `Principal and Interest payment (${basePayment.toFixed(2)}) exceeds current outstanding balance (${outstanding.toFixed(2)}).`,
       });
     }
 

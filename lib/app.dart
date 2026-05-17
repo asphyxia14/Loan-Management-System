@@ -12,6 +12,7 @@ class PqrCooperativeApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'PQR Cooperative',
       theme: const CupertinoThemeData(
+        brightness: Brightness.light,
         primaryColor: Color(0xFF0A84FF),
         scaffoldBackgroundColor: Color(0xFFF7F8FA),
       ),

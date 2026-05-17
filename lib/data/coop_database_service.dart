@@ -25,7 +25,7 @@ class CoopDatabaseService {
         'password': config.password,
         'timeoutInSeconds': config.timeoutInSeconds,
       }),
-    );
+    ).timeout(const Duration(seconds: 15));
 
     final payload = _decodeJsonResponse(response);
     _ensureSuccess(
@@ -57,7 +57,7 @@ class CoopDatabaseService {
       final response = await http.post(
         _uri('/disconnect'),
         headers: _jsonHeaders(),
-      );
+      ).timeout(const Duration(seconds: 15));
       final payload = _decodeJsonResponse(response);
       _ensureSuccess(
         response,
@@ -103,6 +103,22 @@ class CoopDatabaseService {
       throw StateError('Unable to create member.');
     }
     return memberId;
+  }
+
+  Future<void> updateMember({
+    required int memberId,
+    required String fullName,
+    required String phoneNumber,
+    required String addressLine,
+  }) async {
+    await _patch(
+      '/members/$memberId',
+      body: <String, dynamic>{
+        'fullName': fullName.trim(),
+        'phoneNumber': phoneNumber.trim(),
+        'addressLine': addressLine.trim(),
+      },
+    );
   }
 
   Future<void> updateMemberStatus({
@@ -162,11 +178,11 @@ class CoopDatabaseService {
     required double principalAmount,
     required double annualInterestRate,
     required int termMonths,
-    required String purpose,
-    required String approvedBy,
+    String purpose = '',
+    String approvedBy = 'Manager',
     DateTime? approvalDate,
   }) async {
-    final approvedDate = approvalDate ?? DateTime.now();
+    final effectiveDate = approvalDate ?? DateTime.now();
     final payload = await _post(
       '/loans',
       body: <String, dynamic>{
@@ -176,13 +192,13 @@ class CoopDatabaseService {
         'termMonths': termMonths,
         'purpose': purpose.trim(),
         'approvedBy': approvedBy.trim(),
-        'approvalDate': _formatSqlDate(approvedDate),
+        'approvalDate': _formatSqlDate(effectiveDate),
       },
     );
 
     final loanId = _toInt(payload['loanId']);
     if (loanId <= 0) {
-      throw StateError('Unable to create loan record.');
+      throw StateError('Unable to create loan.');
     }
     return loanId;
   }
@@ -245,7 +261,7 @@ class CoopDatabaseService {
       query: <String, String>{'year': '$year', 'month': '$month'},
     );
 
-    final summary = payload['summary'];
+    final dynamic summary = payload['summary'];
     if (summary == null) {
       return null;
     }
@@ -261,7 +277,9 @@ class CoopDatabaseService {
     Map<String, String>? query,
   }) async {
     _requireConnectionState();
-    final response = await http.get(_uri(path, query), headers: _jsonHeaders());
+    final response = await http
+        .get(_uri(path, query), headers: _jsonHeaders())
+        .timeout(const Duration(seconds: 15));
     final payload = _decodeJsonResponse(response);
     _ensureSuccess(response, payload, fallbackMessage: 'GET $path failed.');
     return payload;
@@ -272,19 +290,40 @@ class CoopDatabaseService {
     Map<String, dynamic>? body,
   }) async {
     _requireConnectionState();
-    final response = await http.post(
-      _uri(path),
-      headers: _jsonHeaders(),
-      body: body == null ? null : jsonEncode(body),
-    );
+    final response = await http
+        .post(
+          _uri(path),
+          headers: _jsonHeaders(),
+          body: body == null ? null : jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
     final payload = _decodeJsonResponse(response);
     _ensureSuccess(response, payload, fallbackMessage: 'POST $path failed.');
     return payload;
   }
 
+  Future<Map<String, dynamic>> _patch(
+    String path, {
+    Map<String, dynamic>? body,
+  }) async {
+    _requireConnectionState();
+    final response = await http
+        .patch(
+          _uri(path),
+          headers: _jsonHeaders(),
+          body: body == null ? null : jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 15));
+    final payload = _decodeJsonResponse(response);
+    _ensureSuccess(response, payload, fallbackMessage: 'PATCH $path failed.');
+    return payload;
+  }
+
   Future<Map<String, dynamic>> _delete(String path) async {
     _requireConnectionState();
-    final response = await http.delete(_uri(path), headers: _jsonHeaders());
+    final response = await http
+        .delete(_uri(path), headers: _jsonHeaders())
+        .timeout(const Duration(seconds: 15));
     final payload = _decodeJsonResponse(response);
     _ensureSuccess(response, payload, fallbackMessage: 'DELETE $path failed.');
     return payload;
@@ -322,11 +361,27 @@ class CoopDatabaseService {
       return <String, dynamic>{};
     }
 
-    final dynamic decoded = jsonDecode(response.body);
-    if (decoded is! Map) {
-      throw StateError('Unexpected response from backend.');
+    final contentType = response.headers['content-type'] ?? '';
+    if (!contentType.contains('application/json')) {
+      if (response.statusCode >= 400) {
+        throw StateError(
+          'Server returned an invalid error response (HTTP ${response.statusCode}).',
+        );
+      }
+      throw StateError('Expected JSON response, but received $contentType.');
     }
-    return Map<String, dynamic>.from(decoded);
+
+    try {
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is! Map) {
+        return <String, dynamic>{'rows': decoded};
+      }
+      return Map<String, dynamic>.from(decoded);
+    } on FormatException catch (e) {
+      throw StateError(
+        'Failed to parse server response as JSON. Error: ${e.message}',
+      );
+    }
   }
 
   void _ensureSuccess(

@@ -42,6 +42,7 @@ class _CoopHomePageState extends State<CoopHomePage> {
   final TextEditingController _memberPhoneController = TextEditingController();
   final TextEditingController _memberAddressController =
       TextEditingController();
+  final TextEditingController _memberSearchController = TextEditingController();
 
   final TextEditingController _savingsAmountController =
       TextEditingController();
@@ -122,6 +123,7 @@ class _CoopHomePageState extends State<CoopHomePage> {
     _memberNameController.dispose();
     _memberPhoneController.dispose();
     _memberAddressController.dispose();
+    _memberSearchController.dispose();
 
     _savingsAmountController.dispose();
     _savingsReferenceController.dispose();
@@ -251,6 +253,10 @@ class _CoopHomePageState extends State<CoopHomePage> {
       });
 
       _synchronizeSelections();
+    } catch (error) {
+      if (mounted) {
+        _showNotice('Failed to refresh data: $error', isError: true);
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -349,24 +355,68 @@ class _CoopHomePageState extends State<CoopHomePage> {
   }) async {
     final bool? confirmed = await showCupertinoDialog<bool>(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext dialogContext) {
-        return CupertinoAlertDialog(
-          title: Text(title),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(message),
+        return Center(
+          child: Container(
+            width: 360,
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemBackground.resolveFrom(context),
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: CupertinoColors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: CupertinoColors.secondaryLabel,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    CupertinoButton(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      color: isDestructive
+                          ? CupertinoColors.systemRed
+                          : CupertinoColors.activeBlue,
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: Text(
+                        actionText,
+                        style: const TextStyle(color: CupertinoColors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          actions: <Widget>[
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            CupertinoDialogAction(
-              isDestructiveAction: isDestructive,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(actionText),
-            ),
-          ],
         );
       },
     );
@@ -374,8 +424,16 @@ class _CoopHomePageState extends State<CoopHomePage> {
     return confirmed == true;
   }
 
+  String _toTitleCase(String text) {
+    if (text.isEmpty) return text;
+    return text.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
   Future<void> _createMember() async {
-    final String fullName = _memberNameController.text.trim();
+    final String fullName = _toTitleCase(_memberNameController.text.trim());
     if (fullName.isEmpty) {
       _showNotice('Member name is required.', isError: true);
       return;
@@ -385,7 +443,7 @@ class _CoopHomePageState extends State<CoopHomePage> {
       await _service.createMember(
         fullName: fullName,
         phoneNumber: _memberPhoneController.text.trim(),
-        addressLine: _memberAddressController.text.trim(),
+        addressLine: _toTitleCase(_memberAddressController.text.trim()),
       );
 
       _memberNameController.clear();
@@ -401,6 +459,111 @@ class _CoopHomePageState extends State<CoopHomePage> {
       _showNotice('Member added successfully.');
     } catch (error) {
       _showNotice('Could not create member: $error', isError: true);
+    }
+  }
+
+  Future<void> _editMember(MemberRecord member) async {
+    final TextEditingController nameEdit =
+        TextEditingController(text: member.fullName);
+    final TextEditingController phoneEdit =
+        TextEditingController(text: member.phoneNumber);
+    final TextEditingController addressEdit =
+        TextEditingController(text: member.addressLine);
+
+    final bool? saved = await showCupertinoDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        return Center(
+          child: Container(
+            width: 400,
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemBackground.resolveFrom(context),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const Text(
+                  'Edit Member Details',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 20),
+                CupertinoTextField(
+                  controller: nameEdit,
+                  placeholder: 'Full Name',
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                CupertinoTextField(
+                  controller: phoneEdit,
+                  placeholder: 'Phone Number',
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                CupertinoTextField(
+                  controller: addressEdit,
+                  placeholder: 'Address',
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: CupertinoColors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: <Widget>[
+                    CupertinoButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    const SizedBox(width: 8),
+                    CupertinoButton.filled(
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: const Text('Save Changes'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (saved == true) {
+      try {
+        await _service.updateMember(
+          memberId: member.memberId,
+          fullName: _toTitleCase(nameEdit.text),
+          phoneNumber: phoneEdit.text.trim(),
+          addressLine: _toTitleCase(addressEdit.text),
+        );
+        await _reloadCoreData();
+        _showNotice('Member updated successfully.');
+      } catch (error) {
+        _showNotice('Update failed: $error', isError: true);
+      }
     }
   }
 
@@ -557,10 +720,10 @@ class _CoopHomePageState extends State<CoopHomePage> {
         principalAmount: principal,
         annualInterestRate: rate,
         termMonths: term,
-        purpose: _loanPurposeController.text.trim(),
+        purpose: _toTitleCase(_loanPurposeController.text.trim()),
         approvedBy: _loanApprovedByController.text.trim().isEmpty
             ? 'Manager'
-            : _loanApprovedByController.text.trim(),
+            : _toTitleCase(_loanApprovedByController.text.trim()),
       );
 
       _loanPrincipalController.clear();
@@ -828,7 +991,7 @@ class _CoopHomePageState extends State<CoopHomePage> {
 
   Widget _panelHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 18, 24, 8),
+      padding: const EdgeInsets.fromLTRB(24, 18, 24, 12),
       child: Row(
         children: <Widget>[
           Expanded(
@@ -842,24 +1005,17 @@ class _CoopHomePageState extends State<CoopHomePage> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   _panelStatus(),
                   style: const TextStyle(
                     color: CupertinoColors.secondaryLabel,
+                    fontSize: 13,
                   ),
                 ),
               ],
             ),
           ),
-          if (_lastSyncTime != null)
-            Text(
-              'Last synced ${_formatTime(_lastSyncTime!)}',
-              style: const TextStyle(
-                color: CupertinoColors.secondaryLabel,
-                fontSize: 12,
-              ),
-            ),
         ],
       ),
     );
@@ -870,15 +1026,25 @@ class _CoopHomePageState extends State<CoopHomePage> {
       case 0:
         return DashboardPanel(dashboard: _dashboard, formatMoney: _money);
       case 1:
+        final String query = _memberSearchController.text.toLowerCase().trim();
+        final List<MemberRecord> filteredMembers = _members.where((m) {
+          return m.fullName.toLowerCase().contains(query) ||
+              m.memberNumber.toLowerCase().contains(query) ||
+              m.phoneNumber.toLowerCase().contains(query);
+        }).toList();
+
         return MembersPanel(
           nameController: _memberNameController,
           phoneController: _memberPhoneController,
           addressController: _memberAddressController,
-          members: _members,
+          searchController: _memberSearchController,
+          members: filteredMembers,
           onCreateMember: _createMember,
+          onEditMember: _editMember,
           onToggleMemberStatus: _toggleMemberStatus,
           onDeleteMember: _deleteMember,
           formatMoney: _money,
+          onSearchChanged: (val) => setState(() {}),
         );
       case 2:
         return SavingsPanel(
@@ -955,147 +1121,157 @@ class _CoopHomePageState extends State<CoopHomePage> {
     return Container(
       width: compact ? 80 : 220,
       color: CupertinoColors.systemGroupedBackground,
-      child: SafeArea(
-        child: Column(
-          children: <Widget>[
-            const SizedBox(height: 8),
-            const Text(
-              'PQR',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemCount: labels.length,
-                itemBuilder: (BuildContext context, int index) {
-                  final bool selected = _selectedTab == index;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      onPressed: () {
-                        setState(() {
-                          _selectedTab = index;
-                        });
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: selected
-                              ? CupertinoColors.activeBlue.withValues(
-                                  alpha: 0.16,
-                                )
-                              : CupertinoColors.transparent,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: compact
-                              ? MainAxisAlignment.center
-                              : MainAxisAlignment.start,
-                          children: <Widget>[
-                            Icon(
-                              icons[index],
-                              color: selected
-                                  ? CupertinoColors.activeBlue
-                                  : CupertinoColors.secondaryLabel,
-                            ),
-                            if (!compact) ...<Widget>[
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  labels[index],
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: selected
-                                        ? CupertinoColors.activeBlue
-                                        : CupertinoColors.label,
-                                    fontWeight: selected
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: CupertinoButton(
+      child: Column(
+        children: <Widget>[
+          const SizedBox(height: 40),
+          if (!compact)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Align(
                 alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                onPressed: _isLoadingCoreData
-                    ? null
-                    : () async {
-                        await _reloadCoreData();
-                        await _loadSelectedDetails();
-                      },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      CupertinoIcons.refresh,
-                      color: _isLoadingCoreData
-                          ? CupertinoColors.inactiveGray
-                          : CupertinoColors.activeBlue,
-                    ),
-                    if (!compact) ...<Widget>[
-                      const SizedBox(width: 8),
-                      const Text('Refresh'),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            if (!compact && _lastSyncTime != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 14, top: 2, right: 10),
                 child: Text(
-                  'Last sync ${_formatTime(_lastSyncTime!)}',
-                  style: const TextStyle(
-                    fontSize: 11,
+                  'PQR COOPERATIVE',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                    letterSpacing: 0.8,
                     color: CupertinoColors.secondaryLabel,
                   ),
                 ),
               ),
-            SizedBox(
-              width: double.infinity,
-              child: CupertinoButton(
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                onPressed: _disconnect,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Icon(CupertinoIcons.square_arrow_right),
-                    if (!compact) ...<Widget>[
-                      const SizedBox(width: 8),
-                      const Text('Disconnect'),
-                    ],
+            ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              itemCount: labels.length,
+              itemBuilder: (BuildContext context, int index) {
+                final bool selected = _selectedTab == index;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: () {
+                      setState(() {
+                        _selectedTab = index;
+                      });
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? CupertinoColors.activeBlue.withValues(
+                                alpha: 0.12,
+                              )
+                            : CupertinoColors.transparent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: compact
+                            ? MainAxisAlignment.center
+                            : MainAxisAlignment.start,
+                        children: <Widget>[
+                          Icon(
+                            icons[index],
+                            color: selected
+                                ? CupertinoColors.activeBlue
+                                : CupertinoColors.secondaryLabel,
+                          ),
+                          if (!compact) ...<Widget>[
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                labels[index],
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: selected
+                                      ? CupertinoColors.activeBlue
+                                      : CupertinoColors.label,
+                                  fontWeight: selected
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              onPressed: _isLoadingCoreData
+                  ? null
+                  : () async {
+                      await _reloadCoreData();
+                      await _loadSelectedDetails();
+                    },
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    CupertinoIcons.refresh,
+                    color: _isLoadingCoreData
+                        ? CupertinoColors.inactiveGray
+                        : CupertinoColors.activeBlue,
+                  ),
+                  if (!compact) ...<Widget>[
+                    const SizedBox(width: 8),
+                    const Text('Refresh'),
                   ],
+                ],
+              ),
+            ),
+          ),
+          if (!compact && _lastSyncTime != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 14, top: 2, right: 10),
+              child: Text(
+                'Last sync ${_formatTime(_lastSyncTime!)}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: CupertinoColors.secondaryLabel,
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-          ],
-        ),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton(
+              alignment: Alignment.centerLeft,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              onPressed: _disconnect,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Icon(CupertinoIcons.square_arrow_right),
+                  if (!compact) ...<Widget>[
+                    const SizedBox(width: 8),
+                    const Text('Disconnect'),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
       ),
     );
   }
@@ -1104,106 +1280,114 @@ class _CoopHomePageState extends State<CoopHomePage> {
   Widget build(BuildContext context) {
     if (!_service.isConnected) {
       return CupertinoPageScaffold(
-        navigationBar: const CupertinoNavigationBar(
-          middle: Text('PQR Cooperative'),
-        ),
-        child: SafeArea(
-          child: ConnectionPanel(
-            apiBaseUrlController: _apiBaseUrlController,
-            hostController: _hostController,
-            portController: _portController,
-            databaseController: _databaseController,
-            usernameController: _usernameController,
-            passwordController: _passwordController,
-            isConnecting: _isConnecting,
-            onConnect: _connectAndInitialize,
-          ),
+        child: Column(
+          children: <Widget>[
+            const SizedBox(height: 40),
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text(
+                'PQR Cooperative',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Expanded(
+              child: ConnectionPanel(
+                apiBaseUrlController: _apiBaseUrlController,
+                hostController: _hostController,
+                portController: _portController,
+                databaseController: _databaseController,
+                usernameController: _usernameController,
+                passwordController: _passwordController,
+                isConnecting: _isConnecting,
+                onConnect: _connectAndInitialize,
+              ),
+            ),
+          ],
         ),
       );
     }
 
     return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(
-        middle: Text('PQR Cooperative'),
-      ),
-      child: SafeArea(
-        child: LayoutBuilder(
-          builder: (BuildContext context, BoxConstraints constraints) {
-            final bool compactSidebar = constraints.maxWidth < 1100;
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints constraints) {
+          final bool compactSidebar = constraints.maxWidth < 1100;
 
-            return Row(
-              children: <Widget>[
-                _buildSidebar(compactSidebar),
-                Container(width: 1, color: CupertinoColors.separator),
-                Expanded(
-                  child: Stack(
-                    children: <Widget>[
-                      DecoratedBox(
-                        decoration: const BoxDecoration(
-                          color: CupertinoColors.systemGroupedBackground,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            _panelHeader(),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
-                              child: Container(
-                                height: 1,
-                                color: CupertinoColors.separator,
-                              ),
+          return Row(
+            children: <Widget>[
+              _buildSidebar(compactSidebar),
+              Container(width: 1, color: CupertinoColors.separator),
+              Expanded(
+                child: Stack(
+                  children: <Widget>[
+                    DecoratedBox(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF7F8FA),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const SizedBox(height: 40),
+                          _panelHeader(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Container(
+                              height: 1,
+                              color: CupertinoColors.separator,
                             ),
-                            Expanded(
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 220),
-                                transitionBuilder:
-                                    (Widget child, Animation<double> anim) {
-                                  final Animation<Offset> offset =
-                                      Tween<Offset>(
-                                    begin: const Offset(0.02, 0),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: anim,
-                                      curve: Curves.easeOutCubic,
-                                    ),
-                                  );
-                                  return FadeTransition(
-                                    opacity: anim,
-                                    child: SlideTransition(
-                                      position: offset,
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: SizedBox(
-                                  key: ValueKey<int>(_selectedTab),
-                                  width: double.infinity,
-                                  child: Align(
-                                    alignment: Alignment.topLeft,
-                                    child: _buildCurrentPanel(),
+                          ),
+                          Expanded(
+                            child: AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              transitionBuilder:
+                                  (Widget child, Animation<double> anim) {
+                                final Animation<Offset> offset =
+                                    Tween<Offset>(
+                                  begin: const Offset(0.02, 0),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: anim,
+                                    curve: Curves.easeOutCubic,
                                   ),
+                                );
+                                return FadeTransition(
+                                  opacity: anim,
+                                  child: SlideTransition(
+                                    position: offset,
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: SizedBox(
+                                key: ValueKey<int>(_selectedTab),
+                                width: double.infinity,
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: _buildCurrentPanel(),
                                 ),
                               ),
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isLoadingCoreData)
+                      const Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 48),
+                          child: CupertinoActivityIndicator(),
                         ),
                       ),
-                      if (_isLoadingCoreData)
-                        const Align(
-                          alignment: Alignment.topCenter,
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: CupertinoActivityIndicator(),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            );
-          },
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
