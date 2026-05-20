@@ -259,58 +259,83 @@ class ReportsPanel extends StatelessWidget {
             )
           : Column(
               children: <Widget>[
-                _reportRow('Deposits', formatMoney(summary!.deposits)),
-                _reportRow('Withdrawals', formatMoney(summary!.withdrawals), isNegative: true),
+                _ReportRow('Deposits', formatMoney(summary!.deposits), formatMoney: formatMoney),
+                _ReportRow('Withdrawals', formatMoney(summary!.withdrawals), isNegative: true, formatMoney: formatMoney),
                 const Divider(),
-                _reportRow('NET SAVINGS', formatMoney(summary!.netSavings), isBold: true),
+                _ReportRow('NET SAVINGS', formatMoney(summary!.netSavings), isBold: true, formatMoney: formatMoney),
                 const SizedBox(height: 20),
-                _reportRow('Loan Disbursements', formatMoney(summary!.loanDisbursements), isNegative: true),
-                _reportRow('Loan Repayments', formatMoney(summary!.loanRepayments)),
+                _ReportRow('Loan Disbursements', formatMoney(summary!.loanDisbursements), isNegative: true, formatMoney: formatMoney),
+                _ReportRow('Loan Repayments', formatMoney(summary!.loanRepayments), formatMoney: formatMoney),
                 const Divider(),
-                _reportRow('NET CASH FLOW', formatMoney(summary!.netCashFlow), isBold: true),
+                _ReportRow('NET CASH FLOW', formatMoney(summary!.netCashFlow), isBold: true, formatMoney: formatMoney),
               ],
             ),
     );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: LayoutBuilder(
-        builder: (BuildContext context, BoxConstraints constraints) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              controlsCard,
-              const SizedBox(height: 16),
-              resultCard,
-            ],
-          );
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          controlsCard,
+          const SizedBox(height: 16),
+          resultCard,
+        ],
       ),
     );
   }
+}
 
-  Widget _reportRow(String label, String value,
-      {bool isNegative = false, bool isBold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: <Widget>[
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.w700 : FontWeight.w400,
-              color: isBold ? CupertinoColors.label : CupertinoColors.secondaryLabel,
+class _ReportRow extends StatefulWidget {
+  const _ReportRow(this.label, this.value, {
+    this.isNegative = false,
+    this.isBold = false,
+    required this.formatMoney,
+  });
+
+  final String label;
+  final String value;
+  final bool isNegative;
+  final bool isBold;
+  final String Function(double) formatMoney;
+
+  @override
+  State<_ReportRow> createState() => _ReportRowState();
+}
+
+class _ReportRowState extends State<_ReportRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        decoration: BoxDecoration(
+          color: _isHovered ? CupertinoColors.activeBlue.withValues(alpha: 0.1) : CupertinoColors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            Text(
+              widget.label,
+              style: TextStyle(
+                fontWeight: widget.isBold ? FontWeight.w700 : FontWeight.w400,
+                color: widget.isBold ? CupertinoColors.label : CupertinoColors.secondaryLabel,
+              ),
             ),
-          ),
-          Text(
-            isNegative ? '($value)' : value,
-            style: TextStyle(
-              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
-              color: isNegative ? CupertinoColors.systemRed : CupertinoColors.label,
+            Text(
+              widget.isNegative ? '(${widget.value})' : widget.value,
+              style: TextStyle(
+                fontWeight: widget.isBold ? FontWeight.w800 : FontWeight.w600,
+                color: widget.isNegative ? CupertinoColors.systemRed : CupertinoColors.label,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

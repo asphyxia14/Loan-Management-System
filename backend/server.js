@@ -582,6 +582,8 @@ SELECT
   PrincipalAmount,
   TotalInterestExpected,
   TotalOutstanding,
+  (PrincipalAmount + TotalInterestExpected - TotalOutstanding) AS TotalPaid,
+  'Loan ' + CAST(LoanId AS VARCHAR) + ': [' + MemberNumber + '] ' + MemberName + ' (Paid: ' + FORMAT(PrincipalAmount + TotalInterestExpected - TotalOutstanding, 'N2') + ', Bal: ' + FORMAT(TotalOutstanding, 'N2') + ')' AS LoanSummary,
   ApprovalDate,
   TermMonths,
   InterestRateAnnual,

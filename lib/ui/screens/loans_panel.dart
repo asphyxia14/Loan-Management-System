@@ -15,6 +15,8 @@ class LoansPanel extends StatelessWidget {
     required this.loanTermMonthsController,
     required this.loanPurposeController,
     required this.loanApprovedByController,
+    required this.onSearchChanged,
+    required this.loanSearchController,
     required this.paymentPrincipalController,
     required this.paymentInterestController,
     required this.paymentPenaltyController,
@@ -37,6 +39,8 @@ class LoansPanel extends StatelessWidget {
   final TextEditingController loanTermMonthsController;
   final TextEditingController loanPurposeController;
   final TextEditingController loanApprovedByController;
+  final ValueChanged<String> onSearchChanged;
+  final TextEditingController loanSearchController;
   final TextEditingController paymentPrincipalController;
   final TextEditingController paymentInterestController;
   final TextEditingController paymentPenaltyController;
@@ -140,19 +144,15 @@ class LoansPanel extends StatelessWidget {
     );
   }
 
-  Widget _tableCell(String text, {double? width, bool header = false}) {
+  Widget _headerCell(String text, {double? width}) {
     return SizedBox(
       width: width,
       child: Text(
         text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: header
-              ? CupertinoColors.secondaryLabel
-              : CupertinoColors.label,
-          fontWeight: header ? FontWeight.w700 : FontWeight.w400,
-          fontSize: header ? 12 : 14,
+        style: const TextStyle(
+          color: CupertinoColors.secondaryLabel,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
         ),
       ),
     );
@@ -304,7 +304,7 @@ class LoansPanel extends StatelessWidget {
                             children: <Widget>[
                               Expanded(
                                 child: Text(
-                                  'Loan ${loan.loanId} - ${loan.memberName} - ${formatMoney(loan.totalOutstanding)}',
+                                  loan.loanSummary,
                                   style: const TextStyle(
                                     color: CupertinoColors.label,
                                     fontSize: 14,
@@ -347,14 +347,16 @@ class LoansPanel extends StatelessWidget {
                 ?.fullName ??
             'Unknown');
 
-    final String selectedPaymentName = selectedPaymentLoanId == null
-        ? 'None'
+    final LoanAccountRecord? selectedLoan = selectedPaymentLoanId == null
+        ? null
         : (loans
                 .where((LoanAccountRecord l) =>
                     l.loanId == selectedPaymentLoanId)
-                .firstOrNull
-                ?.memberName ??
-            'Unknown');
+                .firstOrNull);
+
+    final String selectedPaymentName = selectedLoan == null
+        ? 'None'
+        : '[${selectedLoan.memberNumber}] ${selectedLoan.memberName}';
 
     final Widget createLoanCard = AppSectionCard(
       title: 'New Loan Application',
@@ -424,6 +426,97 @@ class LoansPanel extends StatelessWidget {
             selectedPaymentName,
             () => _pickPaymentLoan(context),
           ),
+          if (selectedLoan != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: CupertinoColors.systemGrey6.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'TOTAL PAID',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: CupertinoColors.secondaryLabel,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              formatMoney(selectedLoan.totalPaid),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: CupertinoColors.systemGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 24,
+                        color: CupertinoColors.separator,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'OUTSTANDING',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: CupertinoColors.secondaryLabel,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              formatMoney(selectedLoan.totalOutstanding),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: CupertinoColors.systemRed,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: SizedBox(
+                      height: 4,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: ((selectedLoan.totalPaid) * 100).toInt().clamp(1, 999999999),
+                            child: Container(color: CupertinoColors.systemGreen),
+                          ),
+                          Expanded(
+                            flex: ((selectedLoan.totalOutstanding) * 100).toInt().clamp(1, 999999999),
+                            child: Container(color: CupertinoColors.systemRed.withValues(alpha: 0.2)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             children: <Widget>[
@@ -472,23 +565,30 @@ class LoansPanel extends StatelessWidget {
     final Widget registryCard = AppSectionCard(
       title: 'Loan Registry',
       icon: CupertinoIcons.briefcase,
-      child: loans.isEmpty
-          ? const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Text('No active loans found.'),
-            )
-          : LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints constraints) {
-                if (constraints.maxWidth < 800) {
-                  return Column(
-                    children: loans
-                        .map((LoanAccountRecord loan) =>
-                            _LoanSummaryCard(loan: loan, formatMoney: formatMoney))
-                        .toList(),
-                  );
-                }
-
-                return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: CupertinoSearchTextField(
+              controller: loanSearchController,
+              onChanged: onSearchChanged,
+              placeholder: 'Search borrower or loan ID...',
+              decoration: BoxDecoration(
+                color: CupertinoColors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ),
+          loans.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Text('No active loans found.'),
+                )
+              : SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Column(
                     children: <Widget>[
@@ -503,31 +603,30 @@ class LoansPanel extends StatelessWidget {
                         ),
                         child: Row(
                           children: <Widget>[
-                            _tableCell('Loan ID', width: 70, header: true),
-                            _tableCell('Borrower', width: 160, header: true),
-                            _tableCell('Principal', width: 100, header: true),
-                            _tableCell('Oustanding', width: 100, header: true),
-                            _tableCell('Term', width: 80, header: true),
-                            _tableCell('Status', width: 90, header: true),
-                            _tableCell('Purpose', width: 150, header: true),
+                            _headerCell('Loan ID', width: 70),
+                            _headerCell('Borrower', width: 160),
+                            _headerCell('Principal', width: 100),
+                            _headerCell('Oustanding', width: 100),
+                            _headerCell('Term', width: 80),
+                            _headerCell('Status', width: 90),
+                            _headerCell('Purpose', width: 150),
                           ],
                         ),
                       ),
                       const SizedBox(height: 8),
                       ...List<Widget>.generate(loans.length, (int index) {
                         final LoanAccountRecord loan = loans[index];
-                        final bool isEven = index % 2 == 0;
                         return _LoanTableRow(
                           loan: loan,
-                          isEven: isEven,
+                          index: index,
                           formatMoney: formatMoney,
                         );
                       }),
                     ],
                   ),
-                );
-              },
-            ),
+                ),
+        ],
+      ),
     );
 
     return SingleChildScrollView(
@@ -563,51 +662,78 @@ class LoansPanel extends StatelessWidget {
   }
 }
 
-class _LoanTableRow extends StatelessWidget {
+class _LoanTableRow extends StatefulWidget {
   const _LoanTableRow({
     required this.loan,
-    required this.isEven,
+    required this.index,
     required this.formatMoney,
   });
 
   final LoanAccountRecord loan;
-  final bool isEven;
+  final int index;
   final String Function(double) formatMoney;
 
   @override
+  State<_LoanTableRow> createState() => _LoanTableRowState();
+}
+
+class _LoanTableRowState extends State<_LoanTableRow> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = isEven
+    final bool isApproved = widget.loan.status.toUpperCase() == 'APPROVED';
+    final bool isEven = widget.index % 2 == 0;
+
+    Color backgroundColor = isEven
         ? CupertinoColors.secondarySystemGroupedBackground
         : CupertinoColors.systemGrey6.withValues(alpha: 0.3);
+    
+    if (_isHovered) {
+      backgroundColor = CupertinoColors.activeBlue.withValues(alpha: 0.1);
+    }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: <Widget>[
-          _tableCell('${loan.loanId}', width: 70),
-          _tableCell(loan.memberName, width: 160, bold: true),
-          _tableCell(formatMoney(loan.principalAmount), width: 100),
-          _tableCell(
-            formatMoney(loan.totalOutstanding),
-            width: 100,
-            bold: true,
-            color: CupertinoColors.systemRed,
-          ),
-          _tableCell('${loan.termMonths} mo', width: 80),
-          _tableCell(loan.status, width: 90),
-          _tableCell(loan.purpose, width: 150),
-        ],
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: <Widget>[
+            _tableCell('${widget.loan.loanId}', width: 70),
+            _tableCell(widget.loan.memberName, width: 160, bold: true),
+            _tableCell(widget.formatMoney(widget.loan.principalAmount), width: 100),
+            _tableCell(
+              widget.formatMoney(widget.loan.totalOutstanding),
+              width: 100,
+              bold: true,
+              color: CupertinoColors.systemRed,
+            ),
+            _tableCell('${widget.loan.termMonths} mo', width: 80),
+            SizedBox(
+              width: 90,
+              child: Text(
+                widget.loan.status,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: isApproved ? CupertinoColors.systemGreen : CupertinoColors.systemRed,
+                ),
+              ),
+            ),
+            _tableCell(widget.loan.purpose, width: 150),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _tableCell(String text,
-      {double? width, bool bold = false, Color? color}) {
+  Widget _tableCell(String text, {double? width, bool bold = false, Color? color}) {
     return SizedBox(
       width: width,
       child: Text(
@@ -619,63 +745,6 @@ class _LoanTableRow extends StatelessWidget {
           fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
           fontSize: 14,
         ),
-      ),
-    );
-  }
-}
-
-class _LoanSummaryCard extends StatelessWidget {
-  const _LoanSummaryCard({required this.loan, required this.formatMoney});
-
-  final LoanAccountRecord loan;
-  final String Function(double) formatMoney;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.secondarySystemGroupedBackground,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Text(
-                loan.memberName,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              Text(
-                loan.status,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: CupertinoColors.activeBlue,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              const Text('Outstanding:', style: TextStyle(fontSize: 13, color: CupertinoColors.secondaryLabel)),
-              Text(
-                formatMoney(loan.totalOutstanding),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: CupertinoColors.systemRed,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text('Purpose: ${loan.purpose.isEmpty ? "-" : loan.purpose}', style: const TextStyle(fontSize: 13, color: CupertinoColors.label)),
-        ],
       ),
     );
   }

@@ -99,6 +99,8 @@ class LoanAccountRecord {
     required this.termMonths,
     required this.interestRateAnnual,
     required this.purpose,
+    required this.totalPaid,
+    required this.loanSummary,
   });
 
   final int loanId;
@@ -113,6 +115,8 @@ class LoanAccountRecord {
   final int termMonths;
   final double interestRateAnnual;
   final String purpose;
+  final double totalPaid;
+  final String loanSummary;
 
   factory LoanAccountRecord.fromRow(Map<String, dynamic> row) {
     return LoanAccountRecord(
@@ -128,6 +132,8 @@ class LoanAccountRecord {
       termMonths: _toInt(row['TermMonths']),
       interestRateAnnual: _toDouble(row['InterestRateAnnual']),
       purpose: _toStringValue(row['Purpose']),
+      totalPaid: _toDouble(row['TotalPaid']),
+      loanSummary: _toStringValue(row['LoanSummary']),
     );
   }
 }

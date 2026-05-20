@@ -43,6 +43,8 @@ class _CoopHomePageState extends State<CoopHomePage> {
   final TextEditingController _memberAddressController =
       TextEditingController();
   final TextEditingController _memberSearchController = TextEditingController();
+  final TextEditingController _savingsSearchController = TextEditingController();
+  final TextEditingController _loanSearchController = TextEditingController();
 
   final TextEditingController _savingsAmountController =
       TextEditingController();
@@ -124,6 +126,8 @@ class _CoopHomePageState extends State<CoopHomePage> {
     _memberPhoneController.dispose();
     _memberAddressController.dispose();
     _memberSearchController.dispose();
+    _savingsSearchController.dispose();
+    _loanSearchController.dispose();
 
     _savingsAmountController.dispose();
     _savingsReferenceController.dispose();
@@ -1047,6 +1051,12 @@ class _CoopHomePageState extends State<CoopHomePage> {
           onSearchChanged: (val) => setState(() {}),
         );
       case 2:
+        final String sQuery = _savingsSearchController.text.toLowerCase().trim();
+        final List<SavingsTransactionRecord> filteredSavings = _savingsHistory.where((r) {
+          return r.referenceNo.toLowerCase().contains(sQuery) || 
+                 r.remarks.toLowerCase().contains(sQuery);
+        }).toList();
+
         return SavingsPanel(
           members: _activeMembers,
           selectedMemberId: _selectedSavingsMemberId,
@@ -1055,17 +1065,26 @@ class _CoopHomePageState extends State<CoopHomePage> {
           referenceController: _savingsReferenceController,
           remarksController: _savingsRemarksController,
           currentBalance: _selectedMemberSavingsBalance,
-          history: _savingsHistory,
+          history: filteredSavings,
+          searchController: _savingsSearchController,
           onSelectMember: _handleSavingsMemberChanged,
           onSelectTransactionType: _handleSavingsTransactionTypeChanged,
+          onSearchChanged: (val) => setState(() {}),
           onSubmit: _recordSavingsTransaction,
           formatMoney: _money,
           formatDate: _formatDate,
         );
       case 3:
+        final String lQuery = _loanSearchController.text.toLowerCase().trim();
+        final List<LoanAccountRecord> filteredLoans = _loans.where((l) {
+          return l.memberName.toLowerCase().contains(lQuery) || 
+                 l.loanId.toString().contains(lQuery) ||
+                 l.memberNumber.toLowerCase().contains(lQuery);
+        }).toList();
+
         return LoansPanel(
           members: _activeMembers,
-          loans: _loans,
+          loans: filteredLoans,
           selectedLoanMemberId: _selectedLoanMemberId,
           selectedPaymentLoanId: _selectedPaymentLoanId,
           loanPrincipalController: _loanPrincipalController,
@@ -1073,6 +1092,7 @@ class _CoopHomePageState extends State<CoopHomePage> {
           loanTermMonthsController: _loanTermMonthsController,
           loanPurposeController: _loanPurposeController,
           loanApprovedByController: _loanApprovedByController,
+          loanSearchController: _loanSearchController,
           paymentPrincipalController: _paymentPrincipalController,
           paymentInterestController: _paymentInterestController,
           paymentPenaltyController: _paymentPenaltyController,
@@ -1081,6 +1101,7 @@ class _CoopHomePageState extends State<CoopHomePage> {
           onSelectLoanMember: _handleLoanMemberChanged,
           onCreateLoan: _createLoan,
           onSelectPaymentLoan: _handlePaymentLoanChanged,
+          onSearchChanged: (val) => setState(() {}),
           onPostPayment: _recordLoanPayment,
           formatMoney: _money,
           formatDate: _formatDate,

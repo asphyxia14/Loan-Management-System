@@ -14,8 +14,10 @@ class SavingsPanel extends StatelessWidget {
     required this.remarksController,
     required this.currentBalance,
     required this.history,
+    required this.searchController,
     required this.onSelectMember,
     required this.onSelectTransactionType,
+    required this.onSearchChanged,
     required this.onSubmit,
     required this.formatMoney,
     required this.formatDate,
@@ -29,8 +31,10 @@ class SavingsPanel extends StatelessWidget {
   final TextEditingController remarksController;
   final double currentBalance;
   final List<SavingsTransactionRecord> history;
+  final TextEditingController searchController;
   final ValueChanged<int?> onSelectMember;
   final ValueChanged<String?> onSelectTransactionType;
+  final ValueChanged<String> onSearchChanged;
   final VoidCallback onSubmit;
   final String Function(double) formatMoney;
   final String Function(DateTime) formatDate;
@@ -222,6 +226,20 @@ class SavingsPanel extends StatelessWidget {
     );
   }
 
+  Widget _headerCell(String text, {double? width}) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: CupertinoColors.secondaryLabel,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
   Widget _selectorTile(String label, String value, VoidCallback onTap) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -334,7 +352,7 @@ class SavingsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          if (selectedMemberId != null)
+          if (selectedMemberId != null) ...[
             Padding(
               padding: const EdgeInsets.only(bottom: 20),
               child: Container(
@@ -367,6 +385,22 @@ class SavingsPanel extends StatelessWidget {
                 ),
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: CupertinoSearchTextField(
+                controller: searchController,
+                onChanged: onSearchChanged,
+                placeholder: 'Search reference or remarks...',
+                decoration: BoxDecoration(
+                  color: CupertinoColors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: CupertinoColors.systemGrey4.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (history.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
@@ -376,11 +410,40 @@ class SavingsPanel extends StatelessWidget {
               ),
             )
           else
-            Column(
-              children: history
-                  .map((SavingsTransactionRecord row) =>
-                      _TransactionRow(row: row, formatDate: formatDate, formatMoney: formatMoney))
-                  .toList(),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Column(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.tertiarySystemFill,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        _headerCell('Date', width: 110),
+                        _headerCell('Type', width: 120),
+                        _headerCell('Reference', width: 150),
+                        _headerCell('Amount', width: 120),
+                        _headerCell('Remarks', width: 200),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...List<Widget>.generate(history.length, (int index) {
+                    return _TransactionRow(
+                      row: history[index],
+                      index: index,
+                      formatDate: formatDate,
+                      formatMoney: formatMoney,
+                    );
+                  }),
+                ],
+              ),
             ),
         ],
       ),
@@ -416,69 +479,99 @@ class SavingsPanel extends StatelessWidget {
   }
 }
 
-class _TransactionRow extends StatelessWidget {
+class _TransactionRow extends StatefulWidget {
   const _TransactionRow({
     required this.row,
+    required this.index,
     required this.formatDate,
     required this.formatMoney,
   });
 
   final SavingsTransactionRecord row;
+  final int index;
   final String Function(DateTime) formatDate;
   final String Function(double) formatMoney;
 
   @override
-  Widget build(BuildContext context) {
-    final bool isDeposit = row.transactionType.toUpperCase() == 'DEPOSIT';
+  State<_TransactionRow> createState() => _TransactionRowState();
+}
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.secondarySystemGroupedBackground,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        children: <Widget>[
-          Icon(
-            isDeposit
-                ? CupertinoIcons.arrow_down_circle_fill
-                : CupertinoIcons.arrow_up_circle_fill,
-            color: isDeposit
-                ? CupertinoColors.activeGreen
-                : CupertinoColors.systemRed,
-            size: 24,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  '${isDeposit ? "Deposit" : "Withdrawal"} - ${row.referenceNo.isEmpty ? "No Ref" : row.referenceNo}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${formatDate(row.transactionDate)} • ${row.remarks.isEmpty ? "No remarks" : row.remarks}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: CupertinoColors.secondaryLabel,
+class _TransactionRowState extends State<_TransactionRow> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool isDeposit = widget.row.transactionType.toUpperCase() == 'DEPOSIT';
+    final bool isEven = widget.index % 2 == 0;
+
+    Color backgroundColor = isEven
+        ? CupertinoColors.secondarySystemGroupedBackground
+        : CupertinoColors.systemGrey6.withValues(alpha: 0.3);
+
+    if (_isHovered) {
+      backgroundColor = CupertinoColors.activeBlue.withValues(alpha: 0.1);
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: <Widget>[
+            _cell(widget.formatDate(widget.row.transactionDate), width: 110),
+            SizedBox(
+              width: 120,
+              child: Row(
+                children: [
+                  Icon(
+                    isDeposit ? CupertinoIcons.arrow_down_circle_fill : CupertinoIcons.arrow_up_circle_fill,
+                    color: isDeposit ? CupertinoColors.systemGreen : CupertinoColors.systemRed,
+                    size: 16,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Text(
+                    isDeposit ? "Deposit" : "Withdrawal",
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: isDeposit ? CupertinoColors.systemGreen : CupertinoColors.systemRed,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Text(
-            '${isDeposit ? "+" : "-"}${formatMoney(row.amount)}',
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: isDeposit
-                  ? CupertinoColors.activeGreen
-                  : CupertinoColors.systemRed,
+            _cell(widget.row.referenceNo.isEmpty ? '-' : widget.row.referenceNo, width: 150),
+            _cell(
+              '${isDeposit ? "+" : "-"}${widget.formatMoney(widget.row.amount)}',
+              width: 120,
+              bold: true,
+              color: isDeposit ? CupertinoColors.systemGreen : CupertinoColors.systemRed,
             ),
-          ),
-        ],
+            _cell(widget.row.remarks.isEmpty ? '-' : widget.row.remarks, width: 200),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cell(String text, {double? width, bool bold = false, Color? color}) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        text,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+          color: color ?? CupertinoColors.label,
+        ),
       ),
     );
   }
